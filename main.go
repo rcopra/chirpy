@@ -16,10 +16,10 @@ func main() {
 	fsHandler := http.FileServer(http.Dir("."))
 	cfg := &apiConfig{}
 
-	mux.Handle("/app/", cfg.middlewareMetricsInc(fsHandler))
-	mux.HandleFunc("/healthz", cfg.handlerHealth)
-	mux.HandleFunc("/metrics", cfg.handlerMetrics)
-	mux.HandleFunc("/reset", cfg.handlerReset)
+	mux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app", fsHandler)))
+	mux.HandleFunc("GET /api/healthz", cfg.handlerHealth)
+	mux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
+	mux.HandleFunc("POST /admin/reset", cfg.handlerReset)
 
 	server := &http.Server{
 		Addr:    ":8080",
