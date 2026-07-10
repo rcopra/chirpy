@@ -19,7 +19,12 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
-	mux.Handle("/app/", http.StripPrefix("/app/", http.FileServer(http.Dir("."))))
+
+	fsHandler := http.FileServer(http.Dir("."))
+	apiCfg := &apiConfig{}
+
+	mux.HandleFunc("/metrics", apiCfg.handlerMetrics)
+	mux.Handle("/app/", apiCfg.middlewareMetricsInc(fsHandler))
 
 	server := &http.Server{
 		Addr:    ":8080",
