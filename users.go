@@ -35,8 +35,8 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 
 	hashedPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
-		log.Printf("Error encoding password: %v", err)
-		respondWithError(w, http.StatusInternalServerError, "Invalid request")
+		log.Printf("Error hashing password: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create user")
 		return
 	}
 
@@ -80,26 +80,29 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
+	dbUser, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
 		log.Printf("Error looking up user: %s", err)
-		respondWithError(w, http.StatusNotFound, "User not found")
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
 		return
 	}
-	isAuthorized, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
+
+	match, err := auth.CheckPasswordHash(params.Password, dbUser.HashedPassword)
 	if err != nil {
-		log.Printf("Error: %v", err)
-		respondWithError(w, http.StatusBadRequest, "Error checking password")
+		log.Printf("Error checking password: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Couldn't log in")
+		return
 	}
-	if !isAuthorized {
+	if !match {
 		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
-	} else {
-		user := User{
-			ID:        user.ID,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-			Email:     user.Email,
-		}
-		respondWithJSON(w, http.StatusOK, user)
+		return
 	}
+
+	user := User{
+		ID:        dbUser.ID,
+		CreatedAt: dbUser.CreatedAt,
+		UpdatedAt: dbUser.UpdatedAt,
+		Email:     dbUser.Email,
+	}
+	respondWithJSON(w, http.StatusOK, user)
 }

@@ -48,7 +48,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	params := requestBody{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		log.Printf("Error decoding parameters: %v", err)
+		log.Printf("Error decoding parameters: %s", err)
 		respondWithError(w, http.StatusBadRequest, "Invalid request")
 		return
 	}
@@ -87,8 +87,8 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
 	chirpSlice, err := cfg.db.GetAllChirps(r.Context())
 	if err != nil {
-		log.Printf("Error getting chirps: %v", err)
-		respondWithError(w, http.StatusBadRequest, "Invalid request")
+		log.Printf("Error getting chirps: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get chirps")
 		return
 	}
 
@@ -110,15 +110,15 @@ func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request
 func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, r *http.Request) {
 	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
 	if err != nil {
-		log.Printf("Error: %v", err)
-		respondWithError(w, http.StatusBadGateway, "Failed to look up request")
+		log.Printf("Error parsing chirp ID: %s", err)
+		respondWithError(w, http.StatusBadRequest, "Invalid chirp ID")
 		return
 	}
 
 	dbChirp, err := cfg.db.GetChirpByID(r.Context(), chirpID)
 	if err != nil {
-		log.Printf("Error: %v", err)
-		respondWithError(w, http.StatusNotFound, "No chirp found")
+		log.Printf("Error getting chirp: %s", err)
+		respondWithError(w, http.StatusNotFound, "Chirp not found")
 		return
 	}
 

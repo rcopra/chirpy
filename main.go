@@ -20,27 +20,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	dbQueries := database.New(db)
-	mux := http.NewServeMux()
-	fsHandler := http.FileServer(http.Dir("."))
+
 	cfg := &apiConfig{
-		db:       dbQueries,
+		db:       database.New(db),
 		platform: env,
 	}
 
-	mux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app", fsHandler)))
-	mux.HandleFunc("GET /api/healthz", cfg.handlerHealth)
-	mux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
-	mux.HandleFunc("GET /api/chirps", cfg.handlerGetAllChirps)
-	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.handlerGetChirpByID)
-	mux.HandleFunc("POST /admin/reset", cfg.handlerReset)
-	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
-	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
-	mux.HandleFunc("POST /api/login", cfg.handlerLoginUser)
-
 	server := &http.Server{
 		Addr:    ":8080",
-		Handler: mux,
+		Handler: cfg.routes(),
 	}
 
 	fmt.Println("Server starting on http://localhost:8080")
