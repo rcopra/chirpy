@@ -16,14 +16,16 @@ func main() {
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
 	env := os.Getenv("PLATFORM")
+	jwtTok := os.Getenv("JWT_SIGNING_SECRET")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	cfg := &apiConfig{
-		db:       database.New(db),
-		platform: env,
+		db:              database.New(db),
+		platform:        env,
+		jwtSigningToken: jwtTok,
 	}
 
 	server := &http.Server{

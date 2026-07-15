@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rcopra/chirpy/internal/auth"
 	"github.com/rcopra/chirpy/internal/database"
 )
 
@@ -40,13 +41,26 @@ func filterProfanity(chirp string) string {
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 
 	type requestBody struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
+	}
+
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		log.Printf("Error fetching token: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "Invalid request")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.jwtSigningToken)
+	if err != nil {
+		log.Printf("Error validating JWT : %s", err)
+		respondWithError(w, http.StatusUnauthorized, "Error validating")
+		return
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	params := requestBody{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		log.Printf("Error decoding parameters: %s", err)
 		respondWithError(w, http.StatusBadRequest, "Invalid request")
@@ -63,7 +77,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Body:      filterProfanity(params.Body),
-		UserID:    params.UserID,
+		UserID:    userID,
 	}
 
 	dbChirp, err := cfg.db.CreateChirp(r.Context(), chirpParams)

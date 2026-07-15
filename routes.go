@@ -8,9 +8,10 @@ import (
 )
 
 type apiConfig struct {
-	fileserverHits atomic.Int32
-	db             *database.Queries
-	platform       string
+	fileserverHits  atomic.Int32
+	db              *database.Queries
+	platform        string
+	jwtSigningToken string
 }
 
 func (cfg *apiConfig) routes() *http.ServeMux {

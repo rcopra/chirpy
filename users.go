@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -12,10 +13,12 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Email        string    `json:"email"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
 }
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +74,8 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 
+	const hourInSeconds = 3600
+
 	decoder := json.NewDecoder(r.Body)
 	params := requestBody{}
 	err := decoder.Decode(&params)
@@ -98,11 +103,40 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := User{
-		ID:        dbUser.ID,
-		CreatedAt: dbUser.CreatedAt,
-		UpdatedAt: dbUser.UpdatedAt,
-		Email:     dbUser.Email,
+	expiration := time.Duration(hourInSeconds) * time.Second
+
+	token, err := auth.MakeJWT(dbUser.ID, cfg.jwtSigningToken, expiration)
+	if err != nil {
+		log.Printf("Error creating token: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
 	}
-	respondWithJSON(w, http.StatusOK, user)
+	now := time.Now()
+	refreshExpiry := now.AddDate(0, 0, 60)
+
+	refreshToken := auth.MakeRefreshToken()
+	refreshParams := database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		CreatedAt: now,
+		UpdatedAt: now,
+		ExpiresAt: refreshExpiry,
+		RevokedAt: sql.NullTime{Valid: false},
+		UserID:    dbUser.ID,
+	}
+	dbRefreshToken, err := cfg.db.CreateRefreshToken(r.Context(), refreshParams)
+	if err != nil {
+		log.Printf("Error creating refresh token: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, User{
+		ID:           dbUser.ID,
+		CreatedAt:    dbUser.CreatedAt,
+		UpdatedAt:    dbUser.UpdatedAt,
+		Email:        dbUser.Email,
+		Token:        token,
+		RefreshToken: dbRefreshToken.Token,
+	},
+	)
 }
